@@ -69,14 +69,13 @@ func parseCommand(str string) (rs rollSet, err error) {
 			lexerState = lBonus
 			b += string(c)
 		case c >= '0' && c <= '9':
-			if lexerState == lRolls {
+			switch lexerState {
+			case lRolls:
 				r += string(c)
-			} else if lexerState == lSize {
+			case lSize:
 				s += string(c)
-			} else if lexerState == lBonus {
+			case lBonus:
 				b += string(c)
-			} else {
-				r += string(c)
 			}
 		default:
 			message := "error parsing command "
