@@ -20,7 +20,7 @@ func Test_parseCommand(t *testing.T) {
 			args{
 				"1d6",
 			},
-			rollSet{1, 6, 0},
+			rollSet{1, 6, 0, 0},
 			false,
 		},
 		{
@@ -28,7 +28,7 @@ func Test_parseCommand(t *testing.T) {
 			args{
 				"1dork6",
 			},
-			rollSet{0, 0, 0},
+			rollSet{0, 0, 0, 0},
 			true,
 		},
 		{
@@ -36,7 +36,15 @@ func Test_parseCommand(t *testing.T) {
 			args{
 				"3d12+123",
 			},
-			rollSet{3, 12, 123},
+			rollSet{3, 12, 123, 0},
+			false,
+		},
+		{
+			"Parses a command with keep",
+			args{
+				"3d12+123k2",
+			},
+			rollSet{3, 12, 123, 2},
 			false,
 		},
 	}
@@ -67,7 +75,7 @@ func Test_rollSet_roll(t *testing.T) {
 	}{
 		{
 			"it rolls...",
-			&rollSet{1, 6, 0},
+			&rollSet{1, 6, 0, 0},
 			args{
 				1, // Using a static seed
 			},
@@ -76,7 +84,7 @@ func Test_rollSet_roll(t *testing.T) {
 		},
 		{
 			"it rolls...",
-			&rollSet{10, 10, 10},
+			&rollSet{10, 10, 10, 0},
 			args{
 				1, // Using a static seed
 			},
