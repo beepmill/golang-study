@@ -18,6 +18,14 @@ type rollSet struct {
 	Bonus int
 }
 
+type lexeme int
+
+const (
+	lRolls lexeme = iota + 1
+	lSize
+	lBonus
+)
+
 func newRollSetFromStrings(r, s, b string) (rs rollSet, err error) {
 	var rolls, size, bonus int
 	if r != "" {
@@ -45,10 +53,10 @@ func newRollSetFromStrings(r, s, b string) (rs rollSet, err error) {
 
 func parseCommand(str string) (rs rollSet, err error) {
 	var (
-		r, s, b                  string
-		isRolls, isSize, isBonus bool
+		r, s, b    string
+		lexerState lexeme
 	)
-	isRolls = true
+	lexerState = lRolls
 
 	for i, c := range str {
 		if verbose == true {
@@ -56,20 +64,16 @@ func parseCommand(str string) (rs rollSet, err error) {
 		}
 		switch {
 		case c == 'd':
-			isRolls = false
-			isSize = true
-			isBonus = false
+			lexerState = lSize
 		case c == '+' || c == '-':
-			isRolls = false
-			isSize = false
-			isBonus = true
+			lexerState = lBonus
 			b += string(c)
 		case c >= '0' && c <= '9':
-			if isRolls {
+			if lexerState == lRolls {
 				r += string(c)
-			} else if isSize {
+			} else if lexerState == lSize {
 				s += string(c)
-			} else if isBonus {
+			} else if lexerState == lBonus {
 				b += string(c)
 			} else {
 				r += string(c)
