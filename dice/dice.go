@@ -1,11 +1,13 @@
 package main
 
 import (
-	"flag"
 	"fmt"
+	"log"
 	"math/rand"
+	"os"
 	"regexp"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -13,30 +15,67 @@ var (
 	roll string
 )
 
-var rollPattern = regexp.MustCompile(`(\d+)[dD](\d+)([+-]\d+)?`)
+var rollPattern = regexp.MustCompile(`(\d+)?[dD](\d+)([+-]\d+)?`)
 
-func parseRoll(s string) (rolls, size, add int, err error) {
-	if rollPattern.MatchString(s) {
-		match := rollPattern.FindStringSubmatch(s)
-		fmt.Printf("Rolling %v (%s rolls of size %s), then adding %s\n", s, match[1], match[2], match[3])
-		rolls, err = strconv.Atoi(match[1])
-		if err != nil {
-			return
-		}
-		size, err = strconv.Atoi(match[2])
-		if err != nil {
-			return
-		}
-		if len(match) == 4 && match[3] != "" {
-			add, err = strconv.Atoi(match[3])
-			if err != nil {
-				return
+func parseRoll(str string) (rolls, size, add int, err error) {
+	var (
+		r, s, a                  string
+		isRolls, isSize, isBonus bool
+	)
+	isRolls = true
+
+	for i, c := range str {
+		fmt.Printf("Parsing position %v (%s)...\n", i, string(c))
+		switch {
+		case c == ' ':
+			isRolls = true
+			isSize = false
+			isBonus = false
+		case c == 'd':
+			isRolls = false
+			isSize = true
+			isBonus = false
+		case c == '+' || c == '-':
+			isRolls = false
+			isSize = false
+			isBonus = true
+			a += string(c)
+		case c >= '0' && c <= '9':
+			if isRolls {
+				r += string(c)
+			} else if isSize {
+				s += string(c)
+			} else if isBonus {
+				a += string(c)
+			} else {
+				r += string(c)
 			}
+		default:
+			log.Printf("What is %v?\n", c)
+			return 0, 0, 0, fmt.Errorf("What is %v?\n", c)
+		}
+	}
+	if r != "" {
+		rolls, err = strconv.Atoi(r)
+		if err != nil {
+			return
 		}
 	} else {
-		err = fmt.Errorf("Cannot parse command '%v'", s)
+		rolls = 1
 	}
-	return
+	if s != "" {
+		size, err = strconv.Atoi(s)
+		if err != nil {
+			return
+		}
+	}
+	if a != "" {
+		add, err = strconv.Atoi(a)
+		if err != nil {
+			return
+		}
+	}
+	return rolls, size, add, nil
 }
 
 // Roll TODO
@@ -61,16 +100,18 @@ func Roll(command string, seed int64) (result int, err error) {
 }
 
 func main() {
-	var roll = flag.String("roll", "1d6", "help message goes here")
-	flag.Parse()
+	var roll = strings.Join(os.Args[1:], " ")
+	if roll == "" {
+		roll = "1d6"
+	}
 
-	if rollPattern.MatchString(*roll) == true {
-		result, err := Roll(*roll, time.Now().UTC().UnixNano())
+	if rollPattern.MatchString(roll) == true {
+		result, err := Roll(roll, time.Now().UTC().UnixNano())
 		if err != nil {
 			panic(err)
 		}
-		fmt.Printf("...%v", result)
+		fmt.Printf("...%v\n", result)
 	} else {
-		panic("Invalid roll")
+		log.Panicln("Invalid roll")
 	}
 }
