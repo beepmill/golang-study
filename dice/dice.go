@@ -1,60 +1,25 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"log"
 	"math/rand"
 	"os"
-	"regexp"
 	"strconv"
-	"strings"
 	"time"
 )
 
-var (
-	roll string
-)
+var verbose = false
 
-var rollPattern = regexp.MustCompile(`(\d+)?[dD](\d+)([+-]\d+)?`)
+type rollSet struct {
+	Rolls int
+	Size  int
+	Bonus int
+}
 
-func parseRoll(str string) (rolls, size, add int, err error) {
-	var (
-		r, s, a                  string
-		isRolls, isSize, isBonus bool
-	)
-	isRolls = true
-
-	for i, c := range str {
-		fmt.Printf("Parsing position %v (%s)...\n", i, string(c))
-		switch {
-		case c == ' ':
-			isRolls = true
-			isSize = false
-			isBonus = false
-		case c == 'd':
-			isRolls = false
-			isSize = true
-			isBonus = false
-		case c == '+' || c == '-':
-			isRolls = false
-			isSize = false
-			isBonus = true
-			a += string(c)
-		case c >= '0' && c <= '9':
-			if isRolls {
-				r += string(c)
-			} else if isSize {
-				s += string(c)
-			} else if isBonus {
-				a += string(c)
-			} else {
-				r += string(c)
-			}
-		default:
-			log.Printf("What is %v?\n", c)
-			return 0, 0, 0, fmt.Errorf("What is %v?\n", c)
-		}
-	}
+func newRollSetFromStrings(r, s, b string) (rs rollSet, err error) {
+	var rolls, size, bonus int
 	if r != "" {
 		rolls, err = strconv.Atoi(r)
 		if err != nil {
@@ -69,49 +34,106 @@ func parseRoll(str string) (rolls, size, add int, err error) {
 			return
 		}
 	}
-	if a != "" {
-		add, err = strconv.Atoi(a)
+	if b != "" {
+		bonus, err = strconv.Atoi(b)
 		if err != nil {
 			return
 		}
 	}
-	return rolls, size, add, nil
+	return rollSet{rolls, size, bonus}, nil
 }
 
-// Roll TODO
-func Roll(command string, seed int64) (result int, err error) {
-	rand.Seed(seed)
+func parseCommand(str string) (rs rollSet, err error) {
+	var (
+		r, s, b                  string
+		isRolls, isSize, isBonus bool
+	)
+	isRolls = true
 
-	rolls, size, add, err := parseRoll(command)
+	for i, c := range str {
+		if verbose == true {
+			fmt.Printf("Parsing position %v (%s)...\n", i, string(c))
+		}
+		switch {
+		case c == 'd':
+			isRolls = false
+			isSize = true
+			isBonus = false
+		case c == '+' || c == '-':
+			isRolls = false
+			isSize = false
+			isBonus = true
+			b += string(c)
+		case c >= '0' && c <= '9':
+			if isRolls {
+				r += string(c)
+			} else if isSize {
+				s += string(c)
+			} else if isBonus {
+				b += string(c)
+			} else {
+				r += string(c)
+			}
+		default:
+			message := "error parsing command "
+			if i != 0 {
+				message += str[:i]
+			}
+			message += ">>>" + string(c) + "<<<"
+			if i != len(str)-1 {
+				message += str[i:]
+			}
+			if err != nil {
+				return
+			}
+			return rollSet{}, fmt.Errorf(message)
+		}
+	}
+	rs, err = newRollSetFromStrings(r, s, b)
 	if err != nil {
 		return
-	}
-
-	for r := 0; r < rolls; r++ {
-		roll := rand.Intn(size) + 1
-		fmt.Printf("Rolled %v...\n", roll)
-		result += roll
-	}
-	if add != 0 {
-		fmt.Printf("Adding %v\n", add)
-		result += add
 	}
 	return
 }
 
+func (rs *rollSet) roll(seed int64) (result int, err error) {
+	rand.Seed(seed)
+
+	for r := 0; r < rs.Rolls; r++ {
+		roll := rand.Intn(rs.Size) + 1
+		fmt.Printf("Rolled %v...\n", roll)
+		result += roll
+	}
+	if rs.Bonus != 0 {
+		fmt.Printf("Bonus %v\n", rs.Bonus)
+		result += rs.Bonus
+	}
+	return
+}
+
+func printUsage() {
+	log.Println("dice rollsDsize(+|-)bonus [rollsDsize(+|-)bonus]...")
+	flag.PrintDefaults()
+}
+
 func main() {
-	var roll = strings.Join(os.Args[1:], " ")
-	if roll == "" {
-		roll = "1d6"
+	flag.BoolVar(&verbose, "v", false, "enable verbose logging")
+	flag.Parse()
+	if flag.NArg() == 0 {
+		printUsage()
+		os.Exit(1)
 	}
 
-	if rollPattern.MatchString(roll) == true {
-		result, err := Roll(roll, time.Now().UTC().UnixNano())
+	for _, command := range flag.Args() {
+		rs, err := parseCommand(command)
 		if err != nil {
+			log.Panic(err)
+		}
+		result, err := rs.roll(time.Now().UTC().UnixNano())
+		if err != nil {
+			printUsage()
 			panic(err)
 		}
 		fmt.Printf("...%v\n", result)
-	} else {
-		log.Panicln("Invalid roll")
 	}
 }

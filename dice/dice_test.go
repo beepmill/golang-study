@@ -1,77 +1,74 @@
 package main
 
 import (
+	"reflect"
 	"testing"
 )
 
-func Test_parseRoll(t *testing.T) {
+func Test_parseCommand(t *testing.T) {
 	type args struct {
-		s string
+		str string
 	}
 	tests := []struct {
-		name      string
-		args      args
-		wantRolls int
-		wantSize  int
-		wantAdd   int
-		wantErr   bool
+		name    string
+		args    args
+		wantRs  rollSet
+		wantErr bool
 	}{
 		{
 			"Parses a simple command",
 			args{
 				"1d6",
 			},
-			1,
-			6,
-			0,
+			rollSet{1, 6, 0},
 			false,
+		},
+		{
+			"Fails to parse an invalid command",
+			args{
+				"1dork6",
+			},
+			rollSet{0, 0, 0},
+			true,
 		},
 		{
 			"Parses a command with addition",
 			args{
 				"3d12+123",
 			},
-			3,
-			12,
-			123,
+			rollSet{3, 12, 123},
 			false,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotRolls, gotSize, gotAdd, err := parseRoll(tt.args.s)
+			gotRs, err := parseCommand(tt.args.str)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("parseRoll() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("parseCommand() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if gotRolls != tt.wantRolls {
-				t.Errorf("parseRoll() gotRolls = %v, want %v", gotRolls, tt.wantRolls)
-			}
-			if gotSize != tt.wantSize {
-				t.Errorf("parseRoll() gotSize = %v, want %v", gotSize, tt.wantSize)
-			}
-			if gotAdd != tt.wantAdd {
-				t.Errorf("parseRoll() gotAdd = %v, want %v", gotAdd, tt.wantAdd)
+			if !reflect.DeepEqual(gotRs, tt.wantRs) {
+				t.Errorf("parseCommand() = %v, want %v", gotRs, tt.wantRs)
 			}
 		})
 	}
 }
 
-func TestRoll(t *testing.T) {
+func Test_rollSet_roll(t *testing.T) {
 	type args struct {
-		command string
-		seed    int64
+		seed int64
 	}
 	tests := []struct {
 		name       string
+		rs         *rollSet
 		args       args
 		wantResult int
 		wantErr    bool
 	}{
 		{
 			"it rolls...",
+			&rollSet{1, 6, 0},
 			args{
-				"1d6",
 				1, // Using a static seed
 			},
 			6,
@@ -79,32 +76,23 @@ func TestRoll(t *testing.T) {
 		},
 		{
 			"it rolls...",
+			&rollSet{10, 10, 10},
 			args{
-				"10d10+10",
 				1, // Using a static seed
 			},
 			64,
 			false,
 		},
-		{
-			"it requires a parsable command...",
-			args{
-				"1dork6",
-				1, // Using a static seed
-			},
-			0,
-			true,
-		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotResult, err := Roll(tt.args.command, tt.args.seed)
+			gotResult, err := tt.rs.roll(tt.args.seed)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("Roll() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("rollSet.roll() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if gotResult != tt.wantResult {
-				t.Errorf("Roll() = %v, want %v", gotResult, tt.wantResult)
+				t.Errorf("rollSet.roll() = %v, want %v", gotResult, tt.wantResult)
 			}
 		})
 	}
